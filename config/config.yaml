@@ -1,0 +1,42 @@
+# Example configuration for the Phase 1 data inventory run.
+platforms:
+  - name: salesforce
+    connector: salesforce
+    credentials:
+      username: "env:SALESFORCE_USERNAME"
+      password: "env:SALESFORCE_PASSWORD"
+      security_token: "env:SALESFORCE_SECURITY_TOKEN"
+    options:
+      object_name: Contact
+      fields:
+        - Email
+        - Phone
+        - FirstName
+        - LastName
+      field_mappings:
+        Email: user_email
+        Phone: user_phone
+  - name: hubspot
+    connector: hubspot
+    credentials:
+      access_token: "env:HUBSPOT_ACCESS_TOKEN"
+    options:
+      object_type: contacts
+      fields:
+        - email
+        - phone
+        - firstname
+        - lastname
+      page_size: 200
+  - name: google_analytics
+    connector: google_analytics
+    credentials:
+      service_account_file: "env:GOOGLE_APPLICATION_CREDENTIALS"
+    options:
+      property_id: "123456789"
+      fields:
+        - userPseudoId
+        - sessionSource
+      metrics:
+        - totalUsers
+      completeness_metric: totalUsers
