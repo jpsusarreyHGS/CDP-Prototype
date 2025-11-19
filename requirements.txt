@@ -1,0 +1,4 @@
+PyYAML>=6.0
+simple-salesforce>=1.12.5
+hubspot-api-client>=8.0.0
+google-analytics-data>=0.18.8
