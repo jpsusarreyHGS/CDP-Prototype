@@ -5,6 +5,16 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
+from google.analytics.data_v1beta import BetaAnalyticsDataClient
+from google.oauth2 import service_account
+from google.analytics.data_v1beta.types import GetMetadataRequest, Metric, RunReportRequest
+from google.analytics.data_v1beta.types import (
+            Dimension,
+            Filter,
+            FilterExpression,
+            RunReportRequest,
+        )
+
 from .base import BaseConnector, EntityInventory, FieldDefinition, FieldMetrics
 
 
@@ -16,8 +26,6 @@ class GoogleAnalyticsConnector(BaseConnector):
         self.client = None
 
     def authenticate(self) -> None:
-        from google.analytics.data_v1beta import BetaAnalyticsDataClient
-        from google.oauth2 import service_account
 
         service_account_info = self.credentials.get("service_account_info")
         service_account_file = self.credentials.get("service_account_file")
@@ -38,7 +46,6 @@ class GoogleAnalyticsConnector(BaseConnector):
     def fetch_schema(self) -> List[FieldDefinition]:
         if self.client is None:
             raise RuntimeError("Google Analytics client has not been authenticated.")
-        from google.analytics.data_v1beta.types import GetMetadataRequest
 
         property_id = self.options.get("property_id")
         if not property_id:
@@ -74,13 +81,6 @@ class GoogleAnalyticsConnector(BaseConnector):
     def fetch_field_metrics(self, schema: List[FieldDefinition]) -> EntityInventory:
         if self.client is None:
             raise RuntimeError("Google Analytics client has not been authenticated.")
-        from google.analytics.data_v1beta.types import (
-            Filter,
-            FilterExpression,
-            Metric,
-            Dimension,
-            RunReportRequest,
-        )
 
         property_id = self.options.get("property_id")
         if not property_id:
@@ -104,7 +104,6 @@ class GoogleAnalyticsConnector(BaseConnector):
         return EntityInventory(platform=self.name, entity="users", total_records=total_records, fields=field_metrics)
 
     def _run_total_records(self, property_name: str, metrics: Sequence[str]) -> int:
-        from google.analytics.data_v1beta.types import Metric, RunReportRequest
 
         metric_objs = [Metric(name=metric) for metric in metrics]
         request = RunReportRequest(property=property_name, metrics=metric_objs)
@@ -115,7 +114,6 @@ class GoogleAnalyticsConnector(BaseConnector):
         return 0
 
     def _run_metric_sum(self, property_name: str, metric_name: str) -> int:
-        from google.analytics.data_v1beta.types import Metric, RunReportRequest
 
         request = RunReportRequest(property=property_name, metrics=[Metric(name=metric_name)])
         response = self.client.run_report(request)
@@ -124,12 +122,6 @@ class GoogleAnalyticsConnector(BaseConnector):
         return 0
 
     def _run_dimension_count(self, property_name: str, dimension_name: str) -> int:
-        from google.analytics.data_v1beta.types import (
-            Dimension,
-            Filter,
-            FilterExpression,
-            RunReportRequest,
-        )
 
         filter_expression = FilterExpression(
             not_expression=FilterExpression(
@@ -151,7 +143,6 @@ class GoogleAnalyticsConnector(BaseConnector):
         return 0
 
     def _default_metric(self):
-        from google.analytics.data_v1beta.types import Metric
 
         metric_name = self.options.get("completeness_metric", "totalUsers")
         return Metric(name=metric_name)

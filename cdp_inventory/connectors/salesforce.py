@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
+from simple_salesforce import Salesforce
+
 from .base import BaseConnector, EntityInventory, FieldDefinition, FieldMetrics
 
 
@@ -14,7 +16,6 @@ class SalesforceConnector(BaseConnector):
         self.client = None
 
     def authenticate(self) -> None:
-        from simple_salesforce import Salesforce  # imported lazily to keep dependency optional
 
         username = self.credentials.get("username")
         password = self.credentials.get("password")

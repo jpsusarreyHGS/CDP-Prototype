@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+from hubspot import HubSpot
+from hubspot.crm.objects import ApiException
+
 from .base import BaseConnector, EntityInventory, FieldDefinition, FieldMetrics
 
 
@@ -14,7 +17,6 @@ class HubSpotConnector(BaseConnector):
         self.client = None
 
     def authenticate(self) -> None:
-        from hubspot import HubSpot  # imported lazily
 
         access_token = self.credentials.get("access_token")
         if not access_token:
@@ -56,7 +58,6 @@ class HubSpotConnector(BaseConnector):
         return EntityInventory(platform=self.name, entity=object_type, total_records=total_records, fields=field_metrics)
 
     def _iterate_records(self, object_type: str, fields: List[str]) -> Tuple[int, Dict[str, int]]:
-        from hubspot.crm.objects import ApiException
 
         basic_api = self.client.crm.objects.basic_api
         limit = self.options.get("page_size", 100)
