@@ -6,28 +6,34 @@ from typing import Dict, List, Optional, Tuple
 from hubspot import HubSpot
 from hubspot.crm.objects import ApiException
 
-from .base import BaseConnector, EntityInventory, FieldDefinition, FieldMetrics
+from .base import BaseAdapter, EntityInventory, FieldDefinition, FieldMetrics
+from ..types import User
 
 
-class HubSpotConnector(BaseConnector):
+class HubSpotAdapter(BaseAdapter):
     """Collects schema metadata and volume metrics for HubSpot objects."""
 
-    def __init__(self, name: str, credentials: Dict[str, str], options: Optional[Dict[str, str]] = None) -> None:
-        super().__init__(name=name, credentials=credentials, options=options)
-        self.client = None
+    def __init__(self) -> None:
+        super().__init__()
 
-    def authenticate(self) -> None:
+    def get_name(self) -> str:
+        return "HubSpot"
 
-        access_token = self.credentials.get("access_token")
+    def _authenticate(self, user: User) -> HubSpot:
+        """Instantiate an authenticated HubSpot client using the user's connection."""
+
+        connection = next((conn for conn in user.connections if conn.get("name") == "hubspot"), None)
+        if connection is None:
+            raise ValueError("User does not have a HubSpot connection configured.")
+        access_token = connection.get("access_token")
         if not access_token:
             raise ValueError("HubSpot access token is required.")
-        self.client = HubSpot(access_token=access_token)
+        return HubSpot(access_token=access_token)
 
-    def fetch_schema(self) -> List[FieldDefinition]:
-        if self.client is None:
-            raise RuntimeError("HubSpot client has not been authenticated.")
-        object_type = self.options.get("object_type", "contacts")
-        properties_api = self.client.crm.properties.core_api
+    def fetch_schema(self, user: User, options) -> List[FieldDefinition]:
+        client = self._authenticate(user)
+        object_type = options.get("object_type", "contacts")
+        properties_api = client.crm.properties.core_api
         schema = []
         for prop in properties_api.get_all(object_type=object_type):
             schema.append(
@@ -35,19 +41,18 @@ class HubSpotConnector(BaseConnector):
                     name=prop.name,
                     data_type=prop.type,
                     label=prop.label,
-                    mapped_name=self.options.get("field_mappings", {}).get(prop.name),
+                    mapped_name=options.get("field_mappings", {}).get(prop.name),
                 )
             )
         return schema
 
-    def fetch_field_metrics(self, schema: List[FieldDefinition]) -> EntityInventory:
-        if self.client is None:
-            raise RuntimeError("HubSpot client has not been authenticated.")
-        object_type = self.options.get("object_type", "contacts")
-        fields_to_profile = self.options.get("fields")
+    def fetch_field_metrics(self, user: User, schema: List[FieldDefinition], options) -> EntityInventory:
+        client = self._authenticate(user)
+        object_type = options.get("object_type", "contacts")
+        fields_to_profile = options.get("fields")
         if not fields_to_profile:
             fields_to_profile = [field.name for field in schema]
-        total_records, non_null_counts = self._iterate_records(object_type, fields_to_profile)
+        total_records, non_null_counts = self._iterate_records(client, object_type, fields_to_profile, options)
         field_metrics: List[FieldMetrics] = []
         for field in schema:
             if field.name not in fields_to_profile:
@@ -55,12 +60,23 @@ class HubSpotConnector(BaseConnector):
             non_null = non_null_counts.get(field.name, 0)
             completeness = (non_null / total_records) if total_records else None
             field_metrics.append(FieldMetrics(definition=field, non_null_count=non_null, completeness_pct=completeness))
-        return EntityInventory(platform=self.name, entity=object_type, total_records=total_records, fields=field_metrics)
+        return EntityInventory(
+            platform=self.get_name(),
+            entity=object_type,
+            total_records=total_records,
+            fields=field_metrics,
+        )
 
-    def _iterate_records(self, object_type: str, fields: List[str]) -> Tuple[int, Dict[str, int]]:
+    def _iterate_records(
+        self,
+        client: HubSpot,
+        object_type: str,
+        fields: List[str],
+        options,
+    ) -> Tuple[int, Dict[str, int]]:
 
-        basic_api = self.client.crm.objects.basic_api
-        limit = self.options.get("page_size", 100)
+        basic_api = client.crm.objects.basic_api
+        limit = options.get("page_size", 100)
         after: Optional[str] = None
         total_records = 0
         non_null_counts: Dict[str, int] = {field: 0 for field in fields}

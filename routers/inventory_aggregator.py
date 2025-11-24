@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import argparse
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Annotated
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Depends, Body
 
-from cdp_inventory.aggregator.inventory_runner import InventoryAggregator
+from cdp_inventory.adapters.adapter_factory import get_adapters
+from cdp_inventory.adapters.base import EntityInventory
+from cdp_inventory.types import User
 
 LOGGER = logging.getLogger(__name__)
 DEFAULT_CONFIG_PATH = "config/config.yaml"
@@ -19,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         default="config/config.yaml",
-        help="Path to the configuration file that defines connectors and credentials.",
+        help="Path to the configuration file that defines adapters and credentials.",
     )
     parser.add_argument(
         "--log-level",
@@ -28,17 +30,21 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-@router.get(
+@router.post(
     "",
     summary="Run data inventory aggregation",
     response_description="Inventory details per platform",
 )
-def run_inventory() -> Dict[str, Any]:
+def run_inventory(
+        user: User,
+        options: Annotated[Dict[str, str], Body(..., embed=True)],
+        adapters = Depends(get_adapters),
+    ) -> Dict[str, Any]:
     """Execute the aggregation workflow and return normalized results."""
     try:
-        args = parse_args()
-        aggregator = InventoryAggregator(config_path=args.config)
-        results = aggregator.run()
+        results: Dict[str, EntityInventory] = {}
+        for adapter in adapters:
+            results[adapter.get_name()] = adapter.collect_inventory(user, options)
         payload = {name: inventory.to_dict() for name, inventory in results.items()}
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -46,5 +52,4 @@ def run_inventory() -> Dict[str, Any]:
         LOGGER.exception("Unexpected error while aggregating inventory")
         raise HTTPException(status_code=500, detail="Failed to aggregate inventory.") from exc
     return payload
-
 

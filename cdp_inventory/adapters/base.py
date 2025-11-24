@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Annotated
 import abc
 
+from cdp_inventory.types import User
 
 @dataclass
 class FieldDefinition:
@@ -39,7 +40,7 @@ class FieldMetrics:
 
 @dataclass
 class EntityInventory:
-    """Aggregated inventory response returned by connectors."""
+    """Aggregated inventory response returned by adapters."""
 
     platform: str
     entity: str
@@ -57,32 +58,22 @@ class EntityInventory:
         }
 
 
-class BaseConnector(abc.ABC):
+class BaseAdapter(abc.ABC):
     """Defines the interface that every platform connector must implement."""
 
-    def __init__(self, name: str, credentials: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> None:
-        self.name = name
-        self.credentials = credentials
-        self.options = options or {}
-        self._authenticated = False
-
-    def collect_inventory(self) -> EntityInventory:
+    def collect_inventory(self, user: User, options) -> EntityInventory:
         """Authenticate (if needed) and gather inventory data."""
 
-        if not self._authenticated:
-            self.authenticate()
-            self._authenticated = True
-        schema = self.fetch_schema()
-        return self.fetch_field_metrics(schema)
+        schema = self.fetch_schema(user, options)
+        return self.fetch_field_metrics(user, schema, options)
+
+    def get_name(self) -> str:
+        """Return the name of the platform."""
 
     @abc.abstractmethod
-    def authenticate(self) -> None:
-        """Establish an authenticated client or HTTP session."""
-
-    @abc.abstractmethod
-    def fetch_schema(self) -> List[FieldDefinition]:
+    def fetch_schema(self, user: User, options) -> List[FieldDefinition]:
         """Return the available customer related fields for the connector's entity."""
 
     @abc.abstractmethod
-    def fetch_field_metrics(self, schema: List[FieldDefinition]) -> EntityInventory:
+    def fetch_field_metrics(self, user: User, schema: List[FieldDefinition], options) -> EntityInventory:
         """Return basic volume metrics for the supplied schema."""
