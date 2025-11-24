@@ -37,19 +37,45 @@ def parse_args() -> argparse.Namespace:
 )
 def run_inventory(
         user: User,
-        options: Annotated[Dict[str, str], Body(..., embed=True)],
+        options: Annotated[Dict[str, Any], Body(..., embed=True)],
         adapters = Depends(get_adapters),
     ) -> Dict[str, Any]:
     """Execute the aggregation workflow and return normalized results."""
-    try:
-        results: Dict[str, EntityInventory] = {}
-        for adapter in adapters:
-            results[adapter.get_name()] = adapter.collect_inventory(user, options)
-        payload = {name: inventory.to_dict() for name, inventory in results.items()}
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except Exception as exc:  # pylint: disable=broad-except
-        LOGGER.exception("Unexpected error while aggregating inventory")
-        raise HTTPException(status_code=500, detail="Failed to aggregate inventory.") from exc
+    results: Dict[str, Any] = {}
+    errors: Dict[str, str] = {}
+    
+    for adapter in adapters:
+        adapter_name = adapter.get_name()
+        try:
+            inventory = adapter.collect_inventory(user, options)
+            results[adapter_name] = inventory.to_dict()
+        except ValueError as exc:
+            # Validation errors (e.g., missing property_id, permission denied)
+            errors[adapter_name] = str(exc)
+            LOGGER.warning("Validation error for %s: %s", adapter_name, exc)
+        except Exception as exc:  # pylint: disable=broad-except
+            # Unexpected errors
+            error_msg = f"Unexpected error: {str(exc)}"
+            errors[adapter_name] = error_msg
+            LOGGER.exception("Unexpected error while aggregating inventory for %s", adapter_name)
+    
+    # If all adapters failed, return an error
+    if not results and errors:
+        # If there's a validation error, return 400; otherwise 500
+        # Check error messages for validation-related keywords
+        has_validation_error = any(
+            "permission" in err.lower() or "required" in err.lower() or "invalid" in err.lower()
+            for err in errors.values()
+        )
+        status_code = 400 if has_validation_error else 500
+        error_detail = "; ".join([f"{name}: {err}" for name, err in errors.items()])
+        raise HTTPException(status_code=status_code, detail=error_detail)
+    
+    # Include errors in response if some adapters succeeded
+    payload: Dict[str, Any] = results
+    if errors:
+        payload["_errors"] = errors
+    
     return payload
+
 
