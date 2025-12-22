@@ -1,11 +1,14 @@
 """Common connector definitions and data classes used by all integrations."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Annotated
 import abc
 
 from cdp_inventory.types import User
+
+LOGGER = logging.getLogger(__name__)
 
 @dataclass
 class FieldDefinition:
@@ -63,9 +66,27 @@ class BaseAdapter(abc.ABC):
 
     def collect_inventory(self, user: User, options) -> EntityInventory:
         """Authenticate (if needed) and gather inventory data."""
-
-        schema = self.fetch_schema(user, options)
-        return self.fetch_field_metrics(user, schema, options)
+        print("BASE ADAPTER: collect_inventory called", flush=True)
+        adapter_name = self.get_name()
+        print(f"[{adapter_name}] collect_inventory method called", flush=True)
+        LOGGER.info(f"[{adapter_name}] Starting collect_inventory...")
+        print(f"[{adapter_name}] Starting collect_inventory...", flush=True)
+        try:
+            print(f"[{adapter_name}] About to call fetch_schema...", flush=True)
+            LOGGER.info(f"[{adapter_name}] Step 1: Fetching schema...")
+            print(f"[{adapter_name}] Step 1: Fetching schema...", flush=True)
+            print(f"[{adapter_name}] Calling self.fetch_schema(user, options) now...", flush=True)
+            schema = self.fetch_schema(user, options)
+            print(f"[{adapter_name}] fetch_schema returned, got {len(schema)} fields", flush=True)
+            LOGGER.info(f"[{adapter_name}] Step 1 complete: Retrieved {len(schema)} fields from schema")
+            LOGGER.info(f"[{adapter_name}] Step 2: Fetching field metrics...")
+            inventory = self.fetch_field_metrics(user, schema, options)
+            LOGGER.info(f"[{adapter_name}] Step 2 complete: Retrieved inventory with {inventory.total_records} total records")
+            LOGGER.info(f"[{adapter_name}] collect_inventory complete!")
+            return inventory
+        except Exception as e:
+            LOGGER.exception(f"[{adapter_name}] Error in collect_inventory: {type(e).__name__}: {str(e)}")
+            raise
 
     def get_name(self) -> str:
         """Return the name of the platform."""
