@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDP Inventory Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Customer Data Platform Inventory Dashboard</h1>
+            <p>Connect to Salesforce, HubSpot, and Google Analytics to view your data inventory</p>
+        </header>
+
+        <div class="dashboard-layout">
+            <!-- Left Panel: Input Form -->
+            <div class="input-panel">
+                <h2>Connection Details</h2>
+                
+                <form id="inventoryForm">
+                    <!-- Platform Selection -->
+                    <section class="form-section">
+                        <h3>Platform Connection</h3>
+                        <div class="form-group">
+                            <label for="platform">Select Platform</label>
+                            <select id="platform" required>
+                                <option value="google_analytics">Google Analytics</option>
+                                <option value="salesforce">Salesforce</option>
+                                <option value="hubspot">HubSpot</option>
+                            </select>
+                        </div>
+                    </section>
+
+                    <!-- Google Analytics Connection -->
+                    <section id="gaConnection" class="form-section connection-section">
+                        <h3>Google Analytics Connection</h3>
+                        <div class="form-group">
+                            <label for="gaType">Connection Type</label>
+                            <input type="text" id="gaType" value="service_account" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="gaProjectId">Project ID</label>
+                            <input type="text" id="gaProjectId" placeholder="vigilant-result-451923-s9" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaPrivateKeyId">Private Key ID</label>
+                            <input type="text" id="gaPrivateKeyId" placeholder="cc5f40cf7a60fe193afde11f91e4eff6ddbca6d5" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaPrivateKey">Private Key</label>
+                            <textarea id="gaPrivateKey" rows="8" placeholder="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----" data-required="true"></textarea>
+                            <small>Paste your full private key including BEGIN and END markers. Newlines will be automatically escaped.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="gaClientEmail">Client Email</label>
+                            <input type="email" id="gaClientEmail" placeholder="service-account@project.iam.gserviceaccount.com" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaClientId">Client ID</label>
+                            <input type="text" id="gaClientId" placeholder="113419803986734923050" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaAuthUri">Auth URI</label>
+                            <input type="url" id="gaAuthUri" value="https://accounts.google.com/o/oauth2/auth" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaTokenUri">Token URI</label>
+                            <input type="url" id="gaTokenUri" value="https://oauth2.googleapis.com/token" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaAuthProviderCertUrl">Auth Provider X509 Cert URL</label>
+                            <input type="url" id="gaAuthProviderCertUrl" value="https://www.googleapis.com/oauth2/v1/certs" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaClientCertUrl">Client X509 Cert URL</label>
+                            <input type="url" id="gaClientCertUrl" placeholder="https://www.googleapis.com/robot/v1/metadata/x509/..." data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="gaUniverseDomain">Universe Domain</label>
+                            <input type="text" id="gaUniverseDomain" value="googleapis.com" data-required="true">
+                        </div>
+                        
+                        <!-- Google Analytics Query Options -->
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
+                            <h3 style="margin-bottom: 15px;">Query Options</h3>
+                            <div class="form-group">
+                                <label for="gaPropertyId">Property ID</label>
+                                <input type="text" id="gaPropertyId" placeholder="280556903" data-required="true">
+                                <small>Your GA4 Property ID (numeric)</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="gaFields">Fields (comma-separated)</label>
+                                <input type="text" id="gaFields" value="totalUsers,sessions,eventCount,screenPageViews" placeholder="totalUsers,sessions,eventCount,screenPageViews" data-required="true">
+                                <small>Common GA4 metrics: totalUsers, sessions, eventCount, screenPageViews</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="gaStartDate">Start Date</label>
+                                <input type="text" id="gaStartDate" value="30daysAgo" placeholder="30daysAgo or YYYY-MM-DD" data-required="true">
+                                <small>Use relative dates like "30daysAgo" or absolute dates like "2024-11-25"</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="gaEndDate">End Date</label>
+                                <input type="text" id="gaEndDate" value="today" placeholder="today or YYYY-MM-DD" data-required="true">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Salesforce Connection (Hidden by default) -->
+                    <section id="sfConnection" class="form-section connection-section" style="display: none;">
+                        <h3>Salesforce Connection</h3>
+                        <div class="form-group">
+                            <label for="sfUsername">Username</label>
+                            <input type="text" id="sfUsername" placeholder="your-username@example.com" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="sfPassword">Password</label>
+                            <input type="password" id="sfPassword" data-required="true">
+                        </div>
+                        <div class="form-group">
+                            <label for="sfSecurityToken">Security Token</label>
+                            <input type="text" id="sfSecurityToken" data-required="true">
+                            <small>If you changed your password, you may need to reset your security token in Salesforce.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="sfDomain">Domain</label>
+                            <select id="sfDomain" data-required="true">
+                                <option value="login">Production (login.salesforce.com)</option>
+                                <option value="test">Sandbox (test.salesforce.com)</option>
+                            </select>
+                            <small>Select "Sandbox" if you're connecting to a Salesforce sandbox environment.</small>
+                        </div>
+                    </section>
+
+                    <!-- HubSpot Connection (Hidden by default) -->
+                    <section id="hsConnection" class="form-section connection-section" style="display: none;">
+                        <h3>HubSpot Connection</h3>
+                        <div class="form-group">
+                            <label for="hsAccessToken">Access Token</label>
+                            <input type="text" id="hsAccessToken" placeholder="pat-na1-..." data-required="true">
+                        </div>
+                    </section>
+
+                    <button type="submit" class="submit-btn">
+                        <span id="submitText">Fetch Inventory</span>
+                        <span id="submitLoader" class="loader" style="display: none;"></span>
+                    </button>
+                </form>
+                
+                <!-- Debug Test Button -->
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                    <button type="button" id="testBtn" class="submit-btn" style="background: #28a745;">
+                        Test API Connection
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Results -->
+            <div class="output-panel">
+                <h2>Results</h2>
+                <div id="resultsContainer">
+                    <div class="placeholder">
+                        <p>👈 Fill out the form and click "Fetch Inventory" to see results</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
