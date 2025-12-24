@@ -370,7 +370,7 @@ function buildRequestPayload(platform) {
         }
         
         options.property_id = propertyIdEl.value;
-        options.fields = fieldsEl.value.split(',').map(f => f.trim()).filter(f => f);
+        const fields = fieldsEl.value.split(',').map(f => f.trim()).filter(f => f);
         
         // Add date range
         const startDate = startDateEl.value;
@@ -381,6 +381,31 @@ function buildRequestPayload(platform) {
                 end_date: endDate
             }];
         }
+        
+        // Add all the common GA4 metrics to the fields list
+        const allMetrics = [
+            'totalUsers',
+            'sessions',
+            'eventCount',
+            'screenPageViews',
+            'newUsers',
+            'conversions',
+            'totalRevenue',
+            'averageSessionDuration',
+            'engagementRate',
+            'bounceRate'
+        ];
+        
+        // Start with user-specified fields, or default fields
+        const baseFields = fields.length > 0 ? fields : ['userPseudoId', 'sessionSource', 'eventName'];
+        
+        // Add all metrics to the fields list (avoid duplicates)
+        const allFields = [...new Set([...baseFields, ...allMetrics])];
+        
+        options.fields = allFields;
+        // Use totalUsers as the primary metric for calculating total records
+        options.metrics = ['totalUsers'];
+        options.completeness_metric = 'totalUsers';
         
     } else if (platform === 'salesforce') {
         // Trim whitespace from credentials to avoid authentication issues
@@ -447,8 +472,8 @@ function buildRequestPayload(platform) {
         console.log('HubSpot connection object:', JSON.stringify(hubspotConnection));
         user.connections.push(hubspotConnection);
         
-        options.object_type = 'contacts';
-        options.fields = ['email', 'phone', 'firstname', 'lastname'];
+        // Request both contacts and deals (similar to Salesforce Contact and Case)
+        options.object_types = ['contacts', 'deals'];
     }
     
     const payload = { user, options };
@@ -500,11 +525,39 @@ function displayResults(data) {
             hasData = true;
             
             html += '<div class="table-container">';
-            // Extract platform name (handle cases like "Salesforce-Contact" -> "Salesforce")
+            // Extract platform name and view name (handle cases like "Salesforce-Contact", "Google Analytics-totalUsers")
             let platformLabel = platformData.platform || platformName;
+            let viewName = null;
+            
             if (platformName.includes('-')) {
-                platformLabel = platformName.split('-')[0];
+                const parts = platformName.split('-');
+                platformLabel = parts[0];
+                viewName = parts.slice(1).join('-'); // Handle cases with multiple dashes
+                
+                // Check if there's a display name in the data
+                if (platformData._display_name) {
+                    viewName = platformData._display_name;
+                } else if (platformLabel === 'Google Analytics') {
+                    // Fallback to metric display names if _display_name not available
+                    const metricDisplayNames = {
+                        'totalUsers': 'Total Users',
+                        'sessions': 'Sessions - Total number of sessions',
+                        'eventCount': 'Event Count - Total number of events',
+                        'screenPageViews': 'Screen Page Views - Total page/screen views',
+                        'newUsers': 'New Users - Number of first-time users',
+                        'conversions': 'Conversions - Total conversions',
+                        'totalRevenue': 'Total Revenue - Total revenue (e-commerce)',
+                        'averageSessionDuration': 'Average Session Duration - Average session duration (seconds)',
+                        'engagementRate': 'Engagement Rate - Percentage of engaged sessions',
+                        'bounceRate': 'Bounce Rate - Percentage of bounced sessions'
+                    };
+                    viewName = metricDisplayNames[viewName] || viewName;
+                }
+                
+                // Format as "Google Analytics - [Metric Name]"
+                platformLabel = `${platformLabel} - ${viewName}`;
             }
+            
             html += `<div class="platform-label">${escapeHtml(platformLabel)}</div>`;
             html += '<table class="inventory-table">';
             html += '<tbody>';

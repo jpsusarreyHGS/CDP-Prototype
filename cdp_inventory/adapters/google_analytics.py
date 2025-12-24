@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import List, Sequence
+from typing import List, Sequence, Union
 
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
@@ -348,7 +348,14 @@ class GoogleAnalyticsAdapter(BaseAdapter):
             
             first_metric = response.totals[0].metric_values[0]
             raw_value = first_metric.value
-            value = int(raw_value or 0)
+            # Handle both integer and float values - convert to float first, then round to 2 decimal places
+            if raw_value:
+                try:
+                    value = round(float(raw_value), 2)
+                except (ValueError, TypeError):
+                    value = 0
+            else:
+                value = 0
             LOGGER.info(f"  ✓ Total records (from {metrics[0]}): {value} (raw: {raw_value})")
             LOGGER.debug(f"    - Total rows in response: {len(response.totals)}")
             return value
@@ -361,7 +368,14 @@ class GoogleAnalyticsAdapter(BaseAdapter):
             if hasattr(first_row, 'metric_values') and first_row.metric_values:
                 first_metric = first_row.metric_values[0]
                 raw_value = first_metric.value
-                value = int(raw_value or 0)
+                # Handle both integer and float values - convert to float first, then round to 2 decimal places
+                if raw_value:
+                    try:
+                        value = round(float(raw_value), 2)
+                    except (ValueError, TypeError):
+                        value = 0
+                else:
+                    value = 0
                 print(f"[DEBUG]   ✓ Total records from first row (metric {metrics[0]}): {value} (raw: {raw_value})")
                 LOGGER.info(f"  ✓ Total records (from {metrics[0]}): {value} (raw: {raw_value})")
                 return value
@@ -395,7 +409,7 @@ class GoogleAnalyticsAdapter(BaseAdapter):
             
             return 0
 
-    def _run_metric_sum(self, client: BetaAnalyticsDataClient, property_name: str, metric_name: str, options) -> int:
+    def _run_metric_sum(self, client: BetaAnalyticsDataClient, property_name: str, metric_name: str, options) -> Union[int, float]:
 
         date_ranges = self._get_date_ranges(options)
         date_range_str = f"{date_ranges[0].start_date} to {date_ranges[0].end_date}" if date_ranges else "no date range"
@@ -415,7 +429,14 @@ class GoogleAnalyticsAdapter(BaseAdapter):
         
         if response.totals:
             raw_value = response.totals[0].metric_values[0].value
-            value = int(raw_value or 0)
+            # Handle both integer and float values - convert to float first, then round to 2 decimal places
+            if raw_value:
+                try:
+                    value = round(float(raw_value), 2)
+                except (ValueError, TypeError):
+                    value = 0
+            else:
+                value = 0
             LOGGER.debug(f"    Metric {metric_name}: {value} (raw: {raw_value}, type: {type(raw_value)})")
             return value
         elif response.rows and len(response.rows) > 0:
@@ -423,7 +444,14 @@ class GoogleAnalyticsAdapter(BaseAdapter):
             first_row = response.rows[0]
             if hasattr(first_row, 'metric_values') and first_row.metric_values:
                 raw_value = first_row.metric_values[0].value
-                value = int(raw_value or 0)
+                # Handle both integer and float values - convert to float first, then round to 2 decimal places
+                if raw_value:
+                    try:
+                        value = round(float(raw_value), 2)
+                    except (ValueError, TypeError):
+                        value = 0
+                else:
+                    value = 0
                 LOGGER.debug(f"    Metric {metric_name} (from row): {value} (raw: {raw_value}, type: {type(raw_value)})")
                 return value
         
@@ -457,7 +485,14 @@ class GoogleAnalyticsAdapter(BaseAdapter):
         )
         response = client.run_report(request)
         if response.totals:
-            return int(response.totals[0].metric_values[0].value or 0)
+            raw_value = response.totals[0].metric_values[0].value
+            # Handle both integer and float values - convert to float first, then round to 2 decimal places
+            if raw_value:
+                try:
+                    return round(float(raw_value), 2)
+                except (ValueError, TypeError):
+                    return 0
+            return 0
         return 0
 
     def _get_date_ranges(self, options) -> List[DateRange]:

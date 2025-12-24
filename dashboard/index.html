@@ -84,6 +84,7 @@
                         <!-- Google Analytics Query Options -->
                         <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0;">
                             <h3 style="margin-bottom: 15px;">Query Options</h3>
+                            <p style="margin-bottom: 15px; color: #666; font-size: 0.9rem;"><strong>Note:</strong> This will display a single table with all common GA4 metrics: Total Users, Sessions, Event Count, Screen Page Views, New Users, Conversions, Total Revenue, Average Session Duration, Engagement Rate, and Bounce Rate.</p>
                             <div class="form-group">
                                 <label for="gaPropertyId">Property ID</label>
                                 <input type="text" id="gaPropertyId" placeholder="280556903" data-required="true">
@@ -109,6 +110,7 @@
                     <!-- Salesforce Connection (Hidden by default) -->
                     <section id="sfConnection" class="form-section connection-section" style="display: none;">
                         <h3>Salesforce Connection</h3>
+                        <p style="margin-bottom: 15px; color: #666; font-size: 0.9rem;"><strong>Note:</strong> This will retrieve and display data for Contact and Case objects.</p>
                         <div class="form-group">
                             <label for="sfUsername">Username</label>
                             <input type="text" id="sfUsername" placeholder="your-username@example.com" data-required="true">
@@ -138,6 +140,7 @@
                         <div class="form-group">
                             <label for="hsAccessToken">Access Token</label>
                             <input type="text" id="hsAccessToken" placeholder="pat-na1-..." data-required="true">
+                            <small>This will retrieve and display data for Contacts and Deals.</small>
                         </div>
                     </section>
 

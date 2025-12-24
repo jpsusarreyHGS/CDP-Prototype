@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Annotated
+from typing import Any, Dict, List, Optional, Union, Annotated
 import abc
 
 from cdp_inventory.types import User
@@ -25,7 +25,7 @@ class FieldMetrics:
     """Holds volume statistics for a single field."""
 
     definition: FieldDefinition
-    non_null_count: Optional[int] = None
+    non_null_count: Optional[Union[int, float]] = None
     completeness_pct: Optional[float] = None
 
     def to_dict(self) -> Dict[str, Any]:

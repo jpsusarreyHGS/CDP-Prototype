@@ -146,6 +146,83 @@ def run_inventory(request: InventoryRequest) -> Dict[str, Any]:
                     error_msg = f"Unexpected error: {str(exc)}"
                     errors[result_key] = error_msg
                     LOGGER.exception("Unexpected error while aggregating inventory for %s", result_key)
+        # Special handling for HubSpot: support multiple object types (object_types)
+        elif adapter_name == "HubSpot" and "object_types" in options:
+            object_types = options.get("object_types", [])
+            print(f"[Adapter {idx}/{len(adapters)}] HubSpot: Processing {len(object_types)} object types: {object_types}", flush=True)
+            LOGGER.info(f"HubSpot: Processing {len(object_types)} object types: {object_types}")
+            
+            for object_type in object_types:
+                # Create a copy of options with the specific object_type
+                object_options = options.copy()
+                object_options["object_type"] = object_type
+                # Keep default fields or use object-specific fields if provided
+                if "fields" not in object_options or not object_options.get("fields"):
+                    # Default fields based on object type
+                    if object_type == "deals":
+                        object_options["fields"] = ["dealname", "amount", "dealstage", "closedate", "pipeline"]
+                    elif object_type == "tickets":
+                        object_options["fields"] = ["subject", "content", "hs_pipeline_stage", "hs_ticket_priority", "createdate"]
+                    else:  # contacts or other
+                        object_options["fields"] = ["email", "phone", "firstname", "lastname"]
+                
+                result_key = f"{adapter_name}-{object_type}"
+                print(f"[Adapter {idx}/{len(adapters)}] HubSpot: Processing object type '{object_type}'...", flush=True)
+                try:
+                    inventory = adapter.collect_inventory(user, object_options)
+                    print(f"[Adapter {idx}/{len(adapters)}] HubSpot: '{object_type}' completed successfully!", flush=True)
+                    LOGGER.info(f"HubSpot: '{object_type}' completed successfully!")
+                    results[result_key] = inventory.to_dict()
+                except ValueError as exc:
+                    errors[result_key] = str(exc)
+                    LOGGER.warning("Validation error for %s: %s", result_key, exc)
+                except Exception as exc:  # pylint: disable=broad-except
+                    error_msg = f"Unexpected error: {str(exc)}"
+                    errors[result_key] = error_msg
+                    LOGGER.exception("Unexpected error while aggregating inventory for %s", result_key)
+        # Special handling for Google Analytics: support multiple metric views (metric_views)
+        elif adapter_name == "Google Analytics" and "metric_views" in options:
+            metric_views = options.get("metric_views", [])
+            print(f"[Adapter {idx}/{len(adapters)}] Google Analytics: Processing {len(metric_views)} metric views: {metric_views}", flush=True)
+            LOGGER.info(f"Google Analytics: Processing {len(metric_views)} metric views: {metric_views}")
+            
+            for metric_view in metric_views:
+                # Create a copy of options with the specific metric view
+                view_options = options.copy()
+                view_options["metrics"] = [metric_view.get("metric", "totalUsers")]
+                view_options["completeness_metric"] = metric_view.get("metric", "totalUsers")
+                # Store displayName in options so it can be used later
+                if "displayName" in metric_view:
+                    view_options["_display_name"] = metric_view.get("displayName")
+                # Use name for the result key (simpler, without description)
+                result_key_name = metric_view.get("name") or metric_view.get("metric", "totalUsers")
+                view_name = metric_view.get("displayName") or result_key_name
+                
+                # Use view-specific fields if provided, otherwise use default
+                if "fields" in metric_view and metric_view.get("fields"):
+                    view_options["fields"] = metric_view.get("fields")
+                elif "fields" not in view_options or not view_options.get("fields"):
+                    # Default fields for Google Analytics
+                    view_options["fields"] = ["userPseudoId", "sessionSource", "eventName"]
+                
+                result_key = f"{adapter_name}-{result_key_name}"
+                print(f"[Adapter {idx}/{len(adapters)}] Google Analytics: Processing metric view '{view_name}'...", flush=True)
+                try:
+                    inventory = adapter.collect_inventory(user, view_options)
+                    print(f"[Adapter {idx}/{len(adapters)}] Google Analytics: '{view_name}' completed successfully!", flush=True)
+                    LOGGER.info(f"Google Analytics: '{view_name}' completed successfully!")
+                    inventory_dict = inventory.to_dict()
+                    # Add display name to the result for frontend use
+                    if "_display_name" in view_options:
+                        inventory_dict["_display_name"] = view_options["_display_name"]
+                    results[result_key] = inventory_dict
+                except ValueError as exc:
+                    errors[result_key] = str(exc)
+                    LOGGER.warning("Validation error for %s: %s", result_key, exc)
+                except Exception as exc:  # pylint: disable=broad-except
+                    error_msg = f"Unexpected error: {str(exc)}"
+                    errors[result_key] = error_msg
+                    LOGGER.exception("Unexpected error while aggregating inventory for %s", result_key)
         else:
             # Standard processing for other adapters
             print(f"[Adapter {idx}/{len(adapters)}] About to call adapter.collect_inventory()...", flush=True)
