@@ -60,8 +60,9 @@ export interface PlatformData {
   _display_name?: string;
 }
 
-export interface InventoryResponse {
+export type InventoryResponse = {
   [platformName: string]: PlatformData;
+} & {
   _errors?: {
     [platform: string]: string;
   };

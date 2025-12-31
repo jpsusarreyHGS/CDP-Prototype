@@ -1,5 +1,5 @@
 import React from 'react';
-import type { InventoryResponse } from '../types';
+import type { InventoryResponse, PlatformData, Field } from '../types';
 import { formatNumber, escapeHtml, syntaxHighlight } from '../utils/helpers';
 import { METRIC_DISPLAY_NAMES } from '../constants';
 
@@ -67,14 +67,20 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, error, loading
   for (const [platformName, platformData] of Object.entries(results)) {
     if (platformName === '_errors') continue;
     
-    const entity = platformData.entity || 'N/A';
-    const totalRecords = platformData.total_records || 0;
+    // Type guard to ensure platformData is PlatformData
+    if (!platformData || typeof platformData !== 'object' || !('entity' in platformData)) {
+      continue;
+    }
+    
+    const data = platformData as PlatformData;
+    const entity = data.entity || 'N/A';
+    const totalRecords = typeof data.total_records === 'number' ? data.total_records : 0;
     
     const fieldNames: string[] = [];
     const nonNullCounts: number[] = [];
     
-    if (platformData.fields && platformData.fields.length > 0) {
-      platformData.fields.forEach(field => {
+    if (data.fields && Array.isArray(data.fields) && data.fields.length > 0) {
+      data.fields.forEach((field: Field) => {
         fieldNames.push(field.name || 'N/A');
         nonNullCounts.push(field.non_null_count || 0);
       });
@@ -84,7 +90,7 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, error, loading
       hasData = true;
       
       html += '<div class="table-container">';
-      let platformLabel = platformData.platform || platformName;
+      let platformLabel = data.platform || platformName;
       let viewName: string | null = null;
       
       if (platformName.includes('-')) {
@@ -92,8 +98,8 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, error, loading
         platformLabel = parts[0];
         viewName = parts.slice(1).join('-');
         
-        if (platformData._display_name) {
-          viewName = platformData._display_name;
+        if (data._display_name) {
+          viewName = data._display_name;
         } else if (platformLabel === 'Google Analytics') {
           viewName = METRIC_DISPLAY_NAMES[viewName] || viewName;
         }

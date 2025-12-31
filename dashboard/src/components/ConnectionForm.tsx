@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import type { Platform, InventoryRequest } from '../types';
+import React, { useState } from 'react';
+import type { Platform } from '../types';
 import { buildRequestPayload } from '../utils/formBuilder';
 import { fetchInventory } from '../services/api';
 import ResultsDisplay from './ResultsDisplay';
