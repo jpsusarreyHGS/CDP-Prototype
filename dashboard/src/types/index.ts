@@ -77,5 +77,6 @@ export interface MFEConfig {
   componentName: string;
   componentClass: string;
   data?: Record<string, unknown>;
+  config?: any;
 }
 

@@ -1,6 +1,8 @@
 const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ModuleFederationPlugin = require('webpack').container.ModuleFederationPlugin;
+const DotenvWebpackPlugin = require('dotenv-webpack');
 
 module.exports = {
   mode: process.env.NODE_ENV || 'development',
@@ -24,9 +26,11 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.tsx?$/,
-        use: 'ts-loader',
+        test: /\.(ts|tsx|js|jsx)$/,
         exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+        },
       },
       {
         test: /\.css$/i,
@@ -42,6 +46,9 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './index.html',
       inject: true,
+    }),
+    new DotenvWebpackPlugin({
+      systemvars: true,
     }),
     new ModuleFederationPlugin({
       name: 'dashboard',
@@ -59,6 +66,11 @@ module.exports = {
         'react-dom': {
           singleton: true,
           requiredVersion: '^18.2.0',
+          eager: true,
+        },
+        '@auth0/auth0-react': {
+          singleton: true,
+          requiredVersion: '^2.2.0',
           eager: true,
         },
       },
