@@ -33,7 +33,7 @@ const App: React.FC = () => {
 
       {/* MFE Container */}
       <div id="mfe-container" style={{ marginTop: '30px', padding: '20px', borderTop: '2px solid #e0e0e0' }}>
-        <h2>Micro Frontend</h2>
+        <h2>Ask Anything</h2>
         <Auth0ProviderWithHistory>
           <ErrorBoundary>
             <DynamicComponent data={askAnythingConfig} />
