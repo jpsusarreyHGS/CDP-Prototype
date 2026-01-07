@@ -282,24 +282,15 @@ class HubSpotAdapter(BaseAdapter):
         LOGGER.info(f"[HubSpot] Starting to iterate HubSpot {object_type} records (page_size={limit})...")
         while True:
             page_num += 1
-            # Only print detailed logs every 10 pages to reduce noise
-            if page_num % 10 == 1 or page_num <= 3:
-                print(f"[HubSpot] ===== Starting page {page_num} =====", flush=True)
+            # Only print detailed logs every 100 pages to reduce noise
+            should_log = page_num == 1 or page_num % 100 == 0
             try:
-                if page_num % 10 == 1 or page_num <= 3:
-                    print(f"[HubSpot] Fetching page {page_num} of {object_type} records (limit={limit}, after={after or 'None'})...", flush=True)
-                LOGGER.info(f"[HubSpot] Fetching page {page_num} of {object_type} records (limit={limit}, after={after or 'None'})...")
-                if page_num % 10 == 1 or page_num <= 3:
-                    print(f"[HubSpot] About to call basic_api.get_page()...", flush=True)
                 page = basic_api.get_page(
                     object_type=object_type,
                     properties=fields,
                     limit=limit,
                     after=after,
                 )
-                if page_num % 10 == 1 or page_num <= 3:
-                    print(f"[HubSpot] Page {page_num} API call completed", flush=True)
-                LOGGER.info(f"[HubSpot] Page {page_num} API call completed")
             except ApiException as exc:
                 LOGGER.exception(f"[HubSpot] ApiException during pagination on page {page_num}: {exc}")
                 raise ValueError(f"HubSpot API error during pagination: {exc.reason} - {exc.body}") from exc
@@ -310,8 +301,8 @@ class HubSpotAdapter(BaseAdapter):
             records_in_page = len(results)
             total_records += records_in_page
             
-            # Log progress every 10 pages or for first few pages
-            if page_num % 10 == 0 or page_num <= 3:
+            # Log progress every 100 pages (or first page)
+            if should_log:
                 print(f"[HubSpot] Page {page_num}: Retrieved {records_in_page} records (total so far: {total_records})", flush=True)
             LOGGER.info(f"[HubSpot] Page {page_num}: Retrieved {records_in_page} records (total so far: {total_records})")
             
@@ -333,7 +324,7 @@ class HubSpotAdapter(BaseAdapter):
         return total_records, non_null_counts
     
     def _print_complete_records(self, client: HubSpot, object_type: str, fields_to_profile: List[str]) -> None:
-        """Print the first 3 and last 3 complete records from HubSpot with all fields to verify data."""
+        """Print the first 3 complete records from HubSpot with all fields to verify data."""
         try:
             print(f"\n=== HubSpot Connection Info ===")
             print(f"Object Type: {object_type}")
@@ -375,78 +366,6 @@ class HubSpotAdapter(BaseAdapter):
             except Exception as e:
                 print(f"\n--- Error fetching first 3 records: {str(e)} ---")
                 LOGGER.warning(f"Error fetching first 3 records: {e}")
-            
-            # Now fetch the last 3 records by paginating to the end
-            print(f"\n=== Last 3 Complete {object_type} Records from HubSpot ===")
-            print(f"Fetching last 3 records (this may take a moment for large datasets)...")
-            try:
-                # Use a larger page size to minimize API calls while still getting accurate last records
-                # We'll keep a buffer of the last N records as we paginate
-                buffer_size = 10  # Keep track of last 10 records in case we need more
-                last_records_buffer = []
-                after: Optional[str] = None
-                page_size = 100  # Fetch in chunks of 100
-                page_count = 0
-                max_pages = 10000  # Safety limit to prevent infinite loops
-                
-                while page_count < max_pages:
-                    page_count += 1
-                    page = basic_api.get_page(
-                        object_type=object_type,
-                        properties=fields_to_profile,
-                        limit=page_size,
-                        after=after,
-                    )
-                    
-                    results = page.results or []
-                    if not results:
-                        break
-                    
-                    # Update buffer with the latest records
-                    # Keep only the last buffer_size records
-                    last_records_buffer.extend(results)
-                    if len(last_records_buffer) > buffer_size:
-                        last_records_buffer = last_records_buffer[-buffer_size:]
-                    
-                    # Check if there's a next page
-                    paging = getattr(page, "paging", None)
-                    next_link = getattr(paging, "next", None) if paging else None
-                    after = getattr(next_link, "after", None) if next_link else None
-                    
-                    if after is None:
-                        # This is the last page
-                        break
-                    
-                    # Print progress every 100 pages
-                    if page_count % 100 == 0:
-                        print(f"  Processed {page_count} pages so far...", flush=True)
-                
-                # Print the last 3 records from the buffer
-                if last_records_buffer:
-                    last_3 = last_records_buffer[-3:]  # Get last 3 from buffer
-                    print(f"  Found {len(last_records_buffer)} records in final pages. Showing last 3:")
-                    for i, record in enumerate(last_3, 1):
-                        print(f"\n  --- Last Record {i} (from end) ---")
-                        properties = record.properties or {}
-                        # Print ID if available
-                        record_id = getattr(record, 'id', None)
-                        if record_id:
-                            print(f"    Id: {record_id}")
-                        # Print all requested fields
-                        for field in fields_to_profile:
-                            value = properties.get(field)
-                            print(f"    {field}: {value}")
-                        # Show all properties for debugging
-                        print(f"    All properties: {dict(properties)}")
-                    print(f"\n  (Processed {page_count} pages total to reach the end)")
-                else:
-                    print(f"  No records found in {object_type}")
-            except ApiException as exc:
-                print(f"\n--- Error fetching last 3 records (ApiException): {str(exc)} ---")
-                LOGGER.warning(f"Error fetching last 3 records: {exc}")
-            except Exception as e:
-                print(f"\n--- Error fetching last 3 records: {str(e)} ---")
-                LOGGER.warning(f"Error fetching last 3 records: {e}")
         except Exception as e:
             print(f"\n--- Error in _print_complete_records: {str(e)} ---")
             import traceback
