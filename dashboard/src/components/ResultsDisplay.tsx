@@ -130,6 +130,51 @@ const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, error, loading
       html += '</tbody>';
       html += '</table>';
       html += '</div>';
+      
+      // Check for email metrics in metadata for HubSpot contacts
+      if (data.metadata && data.metadata.email_metrics && Array.isArray(data.metadata.email_metrics)) {
+        const emailMetrics = data.metadata.email_metrics;
+        html += '<div style="margin-top: 30px;"><h3 style="color: #667eea; margin-bottom: 15px;">📧 Email Engagement Metrics</h3>';
+        
+        // Display email metrics tables for each contact
+        emailMetrics.forEach((contactMetrics: any, index: number) => {
+          const contactName = `${contactMetrics.firstname || ''} ${contactMetrics.lastname || ''}`.trim() || 'Contact';
+          const contactEmail = contactMetrics.email || 'N/A';
+          
+          html += '<div class="table-container" style="margin-bottom: 25px;">';
+          html += `<div class="platform-label">${escapeHtml(contactName)} - ${escapeHtml(contactEmail)}</div>`;
+          html += '<table class="inventory-table">';
+          html += '<thead><tr>';
+          html += '<th style="background-color: #f8f9fa; font-weight: 600;">Metric</th>';
+          html += '<th style="background-color: #f8f9fa; font-weight: 600; text-align: right;">Count</th>';
+          html += '</tr></thead>';
+          html += '<tbody>';
+          
+          // Define metrics in order
+          const metricsList = [
+            { key: 'emails_sent', label: 'Emails Sent' },
+            { key: 'emails_opened', label: 'Emails Opened' },
+            { key: 'emails_clicked', label: 'Emails Clicked' },
+            { key: 'emails_bounced', label: 'Emails Bounced' },
+            { key: 'emails_unsubscribed', label: 'Emails Unsubscribed' },
+            { key: 'emails_spam_reported', label: 'Emails Spam Reported' }
+          ];
+          
+          metricsList.forEach(metric => {
+            const count = contactMetrics[metric.key] || 0;
+            html += '<tr>';
+            html += `<td class="entity-cell">${escapeHtml(metric.label)}</td>`;
+            html += `<td class="number-cell" style="text-align: right;">${formatNumber(count)}</td>`;
+            html += '</tr>';
+          });
+          
+          html += '</tbody>';
+          html += '</table>';
+          html += '</div>';
+        });
+        
+        html += '</div>';
+      }
     }
   }
   

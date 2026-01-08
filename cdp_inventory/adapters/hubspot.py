@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 
 from hubspot import HubSpot
 from hubspot.crm.objects import ApiException
@@ -119,8 +119,39 @@ class HubSpotAdapter(BaseAdapter):
         if not fields_to_profile:
             fields_to_profile = [field.name for field in schema]
         
-        # Print first 3 complete records to verify data
-        self._print_complete_records(client, object_type, fields_to_profile)
+        # Print first 3 complete records to verify data and fetch email metrics
+        first_3_records = self._print_complete_records(client, object_type, fields_to_profile)
+        
+        # Fetch email metrics for first 3 contacts if object_type is contacts
+        email_metrics_data = []
+        if object_type == "contacts" and first_3_records:
+            print(f"[HubSpot] Fetching email engagement metrics for {len(first_3_records)} contacts...", flush=True)
+            for record_data in first_3_records:
+                contact_email = record_data.get("email")
+                if contact_email:
+                    email_metrics = self._fetch_email_metrics(user, contact_email)
+                    if email_metrics:
+                        email_metrics_data.append({
+                            "contact_id": record_data.get("id"),
+                            "email": contact_email,
+                            "firstname": record_data.get("firstname", ""),
+                            "lastname": record_data.get("lastname", ""),
+                            **email_metrics
+                        })
+                    else:
+                        # Even if metrics fetch failed, add entry with zeros
+                        email_metrics_data.append({
+                            "contact_id": record_data.get("id"),
+                            "email": contact_email,
+                            "firstname": record_data.get("firstname", ""),
+                            "lastname": record_data.get("lastname", ""),
+                            "emails_sent": 0,
+                            "emails_opened": 0,
+                            "emails_clicked": 0,
+                            "emails_bounced": 0,
+                            "emails_unsubscribed": 0,
+                            "emails_spam_reported": 0
+                        })
         
         print(f"[HubSpot] Step 2: Iterating all records for {len(fields_to_profile)} fields: {fields_to_profile}", flush=True)
         LOGGER.info(f"[HubSpot] Step 2: Iterating all records for {len(fields_to_profile)} fields...")
@@ -136,11 +167,30 @@ class HubSpotAdapter(BaseAdapter):
             completeness = (non_null / total_records) if total_records else None
             field_metrics.append(FieldMetrics(definition=field, non_null_count=non_null, completeness_pct=completeness))
         LOGGER.info(f"[HubSpot] fetch_field_metrics complete: {len(field_metrics)} field metrics created")
+        
+        # Add email metrics to metadata if we have them and print to terminal
+        metadata = {}
+        if email_metrics_data:
+            metadata["email_metrics"] = email_metrics_data
+            print(f"[HubSpot] Added email metrics for {len(email_metrics_data)} contacts to metadata", flush=True)
+            
+            # Print email metrics to terminal
+            print(f"\n=== Email Engagement Metrics for First 3 Contacts ===", flush=True)
+            for i, contact_metrics in enumerate(email_metrics_data, 1):
+                print(f"\n--- Contact {i}: {contact_metrics.get('firstname', '')} {contact_metrics.get('lastname', '')} ({contact_metrics.get('email', '')}) ---", flush=True)
+                print(f"  Emails Sent: {contact_metrics.get('emails_sent', 0)}", flush=True)
+                print(f"  Emails Opened: {contact_metrics.get('emails_opened', 0)}", flush=True)
+                print(f"  Emails Clicked: {contact_metrics.get('emails_clicked', 0)}", flush=True)
+                print(f"  Emails Bounced: {contact_metrics.get('emails_bounced', 0)}", flush=True)
+                print(f"  Emails Unsubscribed: {contact_metrics.get('emails_unsubscribed', 0)}", flush=True)
+                print(f"  Emails Spam Reported: {contact_metrics.get('emails_spam_reported', 0)}", flush=True)
+        
         return EntityInventory(
             platform=self.get_name(),
             entity=object_type,
             total_records=total_records,
             fields=field_metrics,
+            metadata=metadata,
         )
 
     def _get_total_count(self, client: HubSpot, object_type: str, options) -> int:
@@ -323,8 +373,123 @@ class HubSpotAdapter(BaseAdapter):
                 break
         return total_records, non_null_counts
     
-    def _print_complete_records(self, client: HubSpot, object_type: str, fields_to_profile: List[str]) -> None:
-        """Print the first 3 complete records from HubSpot with all fields to verify data."""
+    def _fetch_email_metrics(self, user: User, contact_email: str) -> Optional[Dict[str, int]]:
+        """Fetch email engagement metrics for a specific contact email address using HubSpot Email Events API."""
+        try:
+            import requests
+            
+            # Get access token from user's connection
+            connection = next((conn for conn in user.connections if conn.get("name") == "hubspot"), None)
+            if not connection:
+                print(f"[HubSpot] Warning: No HubSpot connection found for email metrics", flush=True)
+                return None
+            
+            access_token = connection.get("access_token", "").strip()
+            if not access_token:
+                print(f"[HubSpot] Warning: No access token found for email metrics", flush=True)
+                return None
+            
+            # HubSpot Email Events API endpoint
+            # Note: The Email Events API may require specific scopes/permissions
+            # If you get 403 errors, ensure your access token has:
+            # - email-access scope
+            # - Or use a private app with email permissions
+            base_url = "https://api.hubapi.com"
+            endpoint = "/email/public/v1/events"
+            
+            # Initialize metrics dictionary
+            metrics = {
+                "emails_sent": 0,
+                "emails_opened": 0,
+                "emails_clicked": 0,
+                "emails_bounced": 0,
+                "emails_unsubscribed": 0,
+                "emails_spam_reported": 0
+            }
+            
+            print(f"[HubSpot] Fetching email metrics for: {contact_email}", flush=True)
+            LOGGER.info(f"[HubSpot] Fetching email metrics for: {contact_email}")
+            
+            # Event types to query
+            event_types = ["SENT", "OPEN", "CLICK", "BOUNCE", "UNSUBSCRIBE", "SPAMREPORT"]
+            
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Query each event type
+            for event_type in event_types:
+                try:
+                    params = {
+                        "email": contact_email,
+                        "eventType": event_type,
+                        "limit": 100  # Get up to 100 events
+                    }
+                    
+                    response = requests.get(
+                        f"{base_url}{endpoint}",
+                        headers=headers,
+                        params=params,
+                        timeout=10
+                    )
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        count = len(data.get("events", []))
+                        
+                        # Map event types to metric keys
+                        if event_type == "SENT":
+                            metrics["emails_sent"] = count
+                        elif event_type == "OPEN":
+                            metrics["emails_opened"] = count
+                        elif event_type == "CLICK":
+                            metrics["emails_clicked"] = count
+                        elif event_type == "BOUNCE":
+                            metrics["emails_bounced"] = count
+                        elif event_type == "UNSUBSCRIBE":
+                            metrics["emails_unsubscribed"] = count
+                        elif event_type == "SPAMREPORT":
+                            metrics["emails_spam_reported"] = count
+                        
+                        print(f"[HubSpot]   {event_type}: {count} events", flush=True)
+                    elif response.status_code == 404:
+                        # No events found for this type - that's ok
+                        print(f"[HubSpot]   {event_type}: 0 events (not found)", flush=True)
+                    elif response.status_code == 403:
+                        # Permission denied - access token doesn't have email events scope
+                        print(f"[HubSpot]   {event_type}: Permission denied (403) - Email Events API requires 'email-access' scope", flush=True)
+                        LOGGER.warning(f"Email Events API returned 403 for {event_type}. Access token may not have 'email-access' scope/permission.")
+                    else:
+                        print(f"[HubSpot]   {event_type}: API returned status {response.status_code}", flush=True)
+                        LOGGER.warning(f"Email events API returned status {response.status_code} for {event_type}")
+                        
+                        # Try to get error details
+                        try:
+                            error_data = response.json()
+                            if error_data.get("message"):
+                                print(f"[HubSpot]     Error message: {error_data.get('message')}", flush=True)
+                        except:
+                            pass
+                        
+                except Exception as e:
+                    print(f"[HubSpot]   Error fetching {event_type} events: {str(e)}", flush=True)
+                    LOGGER.warning(f"Error fetching {event_type} events: {e}")
+                    continue
+            
+            print(f"[HubSpot] Email metrics for {contact_email}: {metrics}", flush=True)
+            return metrics
+            
+        except Exception as e:
+            print(f"[HubSpot] Error fetching email metrics for {contact_email}: {str(e)}", flush=True)
+            LOGGER.warning(f"Error fetching email metrics: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _print_complete_records(self, client: HubSpot, object_type: str, fields_to_profile: List[str]) -> List[Dict[str, Any]]:
+        """Print the first 3 complete records from HubSpot with all fields to verify data. Returns list of record data."""
+        records_data = []
         try:
             print(f"\n=== HubSpot Connection Info ===")
             print(f"Object Type: {object_type}")
@@ -352,12 +517,20 @@ class HubSpotAdapter(BaseAdapter):
                         record_id = getattr(record, 'id', None)
                         if record_id:
                             print(f"    Id: {record_id}")
+                        
+                        # Store record data for email metrics fetching
+                        record_data = {"id": record_id}
+                        
                         # Print all requested fields
                         for field in fields_to_profile:
                             value = properties.get(field)
                             print(f"    {field}: {value}")
+                            record_data[field] = value
+                        
                         # Show all properties for debugging
                         print(f"    All properties: {dict(properties)}")
+                        
+                        records_data.append(record_data)
                 else:
                     print(f"  No records found in {object_type}")
             except ApiException as exc:
@@ -370,3 +543,5 @@ class HubSpotAdapter(BaseAdapter):
             print(f"\n--- Error in _print_complete_records: {str(e)} ---")
             import traceback
             traceback.print_exc()
+        
+        return records_data
