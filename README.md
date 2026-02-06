@@ -25,7 +25,7 @@ dashboard/
       ResultsDisplay.tsx                 #Component to display queried tables
 
 config/
-  config.yaml        # Example configuration for the initial three platforms
+  config.yaml        # Switched to user input credential rather than config file credentials
 main.py              # CLI entry point
 requirements.txt     # Python dependencies
 ```
