@@ -93,7 +93,7 @@ const DynamicComponent = (props: any) => {
       } 
     > 
       <MFComp 
-        data={props} 
+        data={props.data} 
         currentUserToken={currentUserToken} 
       ></MFComp> 
       {/* {props.data.componentName} */} 

@@ -58,6 +58,7 @@ export interface PlatformData {
   fields: Field[];
   platform?: string;
   _display_name?: string;
+  metadata: any;
 }
 
 export type InventoryResponse = {
@@ -78,5 +79,6 @@ export interface MFEConfig {
   componentClass: string;
   data?: Record<string, unknown>;
   config?: any;
+  uiContext?: any;
 }
 
