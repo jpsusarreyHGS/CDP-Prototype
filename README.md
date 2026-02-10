@@ -13,8 +13,7 @@ available for each of them.
 ```
 cdp_inventory/
   adapter/        # Individual platform adapter
-  aggregator/        # Orchestrator that loads the configuration
-dashboard/
+dashboard/        # frontend app 
   src/
     components/
       auth/
@@ -26,6 +25,8 @@ dashboard/
 
 config/
   config.yaml        # Switched to user input credential rather than config file credentials
+routers/
+  inventory_aggregator.py    #API endpoint to give metric for a specified set of platforms
 main.py              # CLI entry point
 requirements.txt     # Python dependencies
 ```
