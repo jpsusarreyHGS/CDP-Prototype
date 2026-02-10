@@ -46,7 +46,7 @@ and simple volume statistics (record counts and non-null counts).
 
 ## Dashboard
 
-The dashboard uses webpack bundler in order to work with the Module Federation (so that mfe can be used). The Vite dependencies are remaining garbage.
+The dashboard uses webpack bundler in order to work with the Module Federation (so that mfe can be used).
 Update ConnectionForm.tsx when adding new platforms
 
 
